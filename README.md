@@ -13,4 +13,4 @@ Simple text overlay displaying CPU and GPU frame times using data from the Frame
 
 # Important note
 
-On Unity versions prior to 2022.2, [Frame Timing Manager] (https://docs.unity3d.com/2020.3/Documentation/ScriptReference/FrameTimingManager.html) only reports timings on consoles and mobile devices.
+On Unity versions prior to 2022.2, [Frame Timing Manager](https://docs.unity3d.com/2020.3/Documentation/ScriptReference/FrameTimingManager.html) only reports timings on consoles and mobile devices.
