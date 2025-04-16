@@ -2,50 +2,63 @@ using System;
 using System.Text;
 using UnityEngine;
 using TMPro;
+using UnityEngine.Serialization;
 
 public class FrameTimes : MonoBehaviour
 {
-    private FrameTiming[] frameTimings;
-    [SerializeField, Range(3, 240)] private int updateInterval = 30;
-    [SerializeField, Range(10, 200)] private int mainTextSize = 32;
-    [SerializeField, Range(10, 200)] private int secondaryTextSize = 26;
+    // Rung buffer cache size, used to calculate Min/Max/Average values
+    private const int VALUES_CACHE_SIZE = 60;
+    
+    [Header("Text")]
+    [FormerlySerializedAs("mpdateInterval")][SerializeField, Range(3, 240)] private int m_UpdateInterval = 30;
+    [FormerlySerializedAs("mainTextSize")] [SerializeField, Range(10, 200)] private int m_MainTextSize = 32;
+    [FormerlySerializedAs("secondaryTextSize")] [SerializeField, Range(10, 200)] private int m_SecondaryTextSize = 26;
+    [FormerlySerializedAs("textField")] [SerializeField] private TextMeshProUGUI m_TextField;
 
-    private bool hasTextfield = false;
-    [SerializeField] private TextMeshProUGUI textField;
-
-    private int frameCounter;
-    private StringBuilder stringBuilder;
+    private FrameTiming[] m_FrameTiming; // Timings for every frame
+    private FrameTiming[] m_FrameValuesCache; // Ring buffer
+    private int m_CacheIndex;
+    private int m_FrameCounter;
+    private bool m_HasTextfield;
+    private StringBuilder m_StringBuilder;
     
     void Start()
     {
-        frameTimings = new FrameTiming[updateInterval];
-        frameCounter = 0;
-        stringBuilder = new StringBuilder(1024);
+        m_FrameTiming = new FrameTiming[1];
+        m_FrameValuesCache = new FrameTiming[VALUES_CACHE_SIZE];
+        
+        m_CacheIndex = 0;
+        m_FrameCounter = 0;
+        m_StringBuilder = new StringBuilder(1024);
 
-        hasTextfield = textField != null;
-        if(!hasTextfield)
+        m_HasTextfield = m_TextField != null;
+        if(!m_HasTextfield)
             Debug.LogError("No textfield provided, frame times will be logged instead.", this);
     }
 
     void Update()
     {
+        // Read values every frame since some devices don't support more than that
         FrameTimingManager.CaptureFrameTimings();
-        frameCounter++;
-        if (frameCounter < updateInterval)
-            return;
+        FrameTimingManager.GetLatestTimings(1, m_FrameTiming);
         
-        frameCounter = 0;
-        var frameTimingsCount = FrameTimingManager.GetLatestTimings((uint)frameTimings.Length, frameTimings);
-        if (frameTimingsCount <= 0) 
+        // Adds the last read value to our ring buffer cache
+        m_FrameValuesCache[m_CacheIndex] = m_FrameTiming[0];
+        m_CacheIndex = (m_CacheIndex + 1) % VALUES_CACHE_SIZE;
+
+        // Only update text on screen when needed
+        m_FrameCounter++;
+        if (m_FrameCounter <= m_UpdateInterval)
             return;
             
+        m_FrameCounter = 0;
         double cpuMin, cpuMax, cpuAvg, gpuMin, gpuMax, gpuAvg;
-        cpuMin = cpuMax = cpuAvg = frameTimings[0].cpuFrameTime;
-        gpuMin = gpuMax = gpuAvg = frameTimings[0].gpuFrameTime;
+        cpuMin = cpuMax = cpuAvg = m_FrameValuesCache[0].cpuFrameTime;
+        gpuMin = gpuMax = gpuAvg = m_FrameValuesCache[0].gpuFrameTime;
             
-        for (int i = 1; i < frameTimingsCount; i++)
+        for (int i = 1; i < VALUES_CACHE_SIZE; i++)
         {
-            var frame = frameTimings[i];
+            var frame = m_FrameValuesCache[i];
             cpuMin = Math.Min(cpuMin, frame.cpuFrameTime);
             cpuMax = Math.Max(cpuMax, frame.cpuFrameTime);
             cpuAvg += frame.cpuFrameTime;
@@ -54,26 +67,16 @@ public class FrameTimes : MonoBehaviour
             gpuAvg += frame.gpuFrameTime;
         }
             
-        // Remove min and max values from the average calculation
-        if (frameTimingsCount > 2)
-        {
-            cpuAvg -= cpuMin;
-            cpuAvg -= cpuMax;
-            gpuAvg -= gpuMin;
-            gpuAvg -= gpuMax;
-            frameTimingsCount -= 2;
-        }
-            
-        cpuAvg /= frameTimingsCount;
-        gpuAvg /= frameTimingsCount;
+        cpuAvg /= VALUES_CACHE_SIZE;
+        gpuAvg /= VALUES_CACHE_SIZE;
 
-        stringBuilder.Clear();
-        stringBuilder.Append($"<size={mainTextSize}><b>CPU:</b> {cpuAvg:00.00}</size><size={secondaryTextSize}>ms <i>min:{cpuMin:00.00} max:{cpuMax:00.00}</i></size>\n");
-        stringBuilder.Append($"<size={mainTextSize}><b>GPU:</b> {gpuAvg:00.00}</size><size={secondaryTextSize}>ms <i>min:{gpuMin:00.00} max:{gpuMax:00.00}</i></size>");
+        m_StringBuilder.Clear();
+        m_StringBuilder.Append($"<size={m_MainTextSize}><b>CPU:</b> {cpuAvg:00.00}</size><size={m_SecondaryTextSize}>ms <i>min:{cpuMin:00.00} max:{cpuMax:00.00}</i></size>\n");
+        m_StringBuilder.Append($"<size={m_MainTextSize}><b>GPU:</b> {gpuAvg:00.00}</size><size={m_SecondaryTextSize}>ms <i>min:{gpuMin:00.00} max:{gpuMax:00.00}</i></size>");
 
-        if (hasTextfield)
-            textField.text = stringBuilder.ToString();
+        if (m_HasTextfield)
+            m_TextField.text = m_StringBuilder.ToString();
         else
-            Debug.Log(stringBuilder.ToString());
+            Debug.Log(m_StringBuilder.ToString());
     }
 }
