@@ -1,6 +1,6 @@
 {
-  "name": "com.unity.solutions.frametimesoverlay",
-  "version": "1.0.0",
+  "name": "com.unity.usp.frametimesoverlay",
+  "version": "1.0.1",
   "displayName": "Frame Times Overlay",
   "description": "Simple text overlay displaying CPU and GPU frame times using data from the FrameTimingManager.",
   "unity": "2020.3",
