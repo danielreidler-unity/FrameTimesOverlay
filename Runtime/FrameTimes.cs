@@ -6,8 +6,8 @@ using UnityEngine.Serialization;
 
 public class FrameTimes : MonoBehaviour
 {
-    // Rung buffer cache size, used to calculate Min/Max/Average values
-    private const int VALUES_CACHE_SIZE = 60;
+    // Ring buffer cache size, used to calculate Min/Max/Average values
+    private const int VALUES_CACHE_SIZE = 120;
     
     [Header("Text")]
     [FormerlySerializedAs("mpdateInterval")][SerializeField, Range(3, 240)] private int m_UpdateInterval = 30;
@@ -21,6 +21,13 @@ public class FrameTimes : MonoBehaviour
     private int m_FrameCounter;
     private bool m_HasTextfield;
     private StringBuilder m_StringBuilder;
+    
+    public double CPUMin { get; private set; }
+    public double CPUMax { get; private set; }
+    public double CPUAvg { get; private set; }
+    public double GPUMin { get; private set; }
+    public double GPUMax { get; private set; }
+    public double GPUAvg { get; private set; }
     
     void Start()
     {
@@ -52,27 +59,26 @@ public class FrameTimes : MonoBehaviour
             return;
             
         m_FrameCounter = 0;
-        double cpuMin, cpuMax, cpuAvg, gpuMin, gpuMax, gpuAvg;
-        cpuMin = cpuMax = cpuAvg = m_FrameValuesCache[0].cpuFrameTime;
-        gpuMin = gpuMax = gpuAvg = m_FrameValuesCache[0].gpuFrameTime;
+        CPUMin = CPUMax = CPUAvg = m_FrameValuesCache[0].cpuFrameTime;
+        GPUMin = GPUMax = GPUAvg = m_FrameValuesCache[0].gpuFrameTime;
             
         for (int i = 1; i < VALUES_CACHE_SIZE; i++)
         {
             var frame = m_FrameValuesCache[i];
-            cpuMin = Math.Min(cpuMin, frame.cpuFrameTime);
-            cpuMax = Math.Max(cpuMax, frame.cpuFrameTime);
-            cpuAvg += frame.cpuFrameTime;
-            gpuMin = Math.Min(gpuMin, frame.gpuFrameTime);
-            gpuMax = Math.Max(gpuMax, frame.gpuFrameTime);
-            gpuAvg += frame.gpuFrameTime;
+            CPUMin = Math.Min(CPUMin, frame.cpuFrameTime);
+            CPUMax = Math.Max(CPUMax, frame.cpuFrameTime);
+            CPUAvg += frame.cpuFrameTime;
+            GPUMin = Math.Min(GPUMin, frame.gpuFrameTime);
+            GPUMax = Math.Max(GPUMax, frame.gpuFrameTime);
+            GPUAvg += frame.gpuFrameTime;
         }
             
-        cpuAvg /= VALUES_CACHE_SIZE;
-        gpuAvg /= VALUES_CACHE_SIZE;
+        CPUAvg /= VALUES_CACHE_SIZE;
+        GPUAvg /= VALUES_CACHE_SIZE;
 
         m_StringBuilder.Clear();
-        m_StringBuilder.Append($"<size={m_MainTextSize}><b>CPU:</b> {cpuAvg:00.00}</size><size={m_SecondaryTextSize}>ms <i>min:{cpuMin:00.00} max:{cpuMax:00.00}</i></size>\n");
-        m_StringBuilder.Append($"<size={m_MainTextSize}><b>GPU:</b> {gpuAvg:00.00}</size><size={m_SecondaryTextSize}>ms <i>min:{gpuMin:00.00} max:{gpuMax:00.00}</i></size>");
+        m_StringBuilder.Append($"<size={m_MainTextSize}><b>CPU:</b> {CPUAvg:00.00}</size><size={m_SecondaryTextSize}>ms <i>min:{CPUMin:00.00} max:{CPUMax:00.00}</i></size>\n");
+        m_StringBuilder.Append($"<size={m_MainTextSize}><b>GPU:</b> {GPUAvg:00.00}</size><size={m_SecondaryTextSize}>ms <i>min:{GPUMin:00.00} max:{GPUMax:00.00}</i></size>");
 
         if (m_HasTextfield)
             m_TextField.text = m_StringBuilder.ToString();
